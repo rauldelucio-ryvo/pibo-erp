@@ -1,0 +1,139 @@
+version: '3.8'
+
+services:
+  # Infrastructure
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: pibo_erp
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - pibo-network
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: password
+    networks:
+      - pibo-network
+
+  # API Gateway
+  api-gateway:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./gateway/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - pibo-auth-service
+      - pibo-frontend-web
+    networks:
+      - pibo-network
+
+  # Microservices
+  pibo-auth-service:
+    build:
+      context: ./apps/pibo-auth-service
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgres://admin:password@postgres:5432/pibo_erp
+      JWT_SECRET: supersecretkey
+    depends_on:
+      - postgres
+    networks:
+      - pibo-network
+
+  pibo-fiscal-service:
+    build:
+      context: ./apps/pibo-fiscal-service
+      dockerfile: Dockerfile
+    environment:
+      RABBITMQ_URL: amqp://admin:password@rabbitmq:5672
+    depends_on:
+      - rabbitmq
+    networks:
+      - pibo-network
+
+  pibo-crm-service:
+    build:
+      context: ./apps/pibo-crm-service
+      dockerfile: Dockerfile
+    networks:
+      - pibo-network
+
+  pibo-vendas-service:
+    build:
+      context: ./apps/pibo-vendas-service
+      dockerfile: Dockerfile
+    networks:
+      - pibo-network
+
+  pibo-estoque-service:
+    build:
+      context: ./apps/pibo-estoque-service
+      dockerfile: Dockerfile
+    networks:
+      - pibo-network
+
+  pibo-financeiro-service:
+    build:
+      context: ./apps/pibo-financeiro-service
+      dockerfile: Dockerfile
+    networks:
+      - pibo-network
+
+  pibo-workflow-service:
+    build:
+      context: ./apps/pibo-workflow-service
+      dockerfile: Dockerfile
+    networks:
+      - pibo-network
+
+  pibo-contratos-service:
+    build:
+      context: ./apps/pibo-contratos-service
+      dockerfile: Dockerfile
+    networks:
+      - pibo-network
+
+  pibo-config-service:
+    build:
+      context: ./apps/pibo-config-service
+      dockerfile: Dockerfile
+    networks:
+      - pibo-network
+
+  # Frontend
+  pibo-frontend-web:
+    build:
+      context: ./apps/pibo-frontend-web
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    networks:
+      - pibo-network
+
+  pibo-compras-service:
+    build: ./apps/pibo-compras-service
+    environment:
+      - DATABASE_URL=postgres://admin:password@postgres:5432/pibo_erp
+    depends_on:
+      - postgres
+    networks:
+      - pibo-network
+
+networks:
+  pibo-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
