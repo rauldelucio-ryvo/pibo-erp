@@ -3,26 +3,44 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://159.65.237.156:8080';
+
 export default function RegisterPage() {
     const [form, setForm] = useState({ name: '', email: '', password: '', tenantName: '' });
     const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
     const router = useRouter();
 
     const handleRegister = async (e: React.FormEvent) => {
         e.preventDefault();
+        setError('');
+        setLoading(true);
+
         try {
-            const res = await fetch('http://localhost:8080/api/auth/register', {
+            console.log(`Attempting registration to: ${API_URL}/auth/register`);
+
+            const res = await fetch(`${API_URL}/auth/register`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(form),
             });
 
-            if (!res.ok) throw new Error(await res.text());
+            console.log('Register response status:', res.status);
 
+            if (!res.ok) {
+                const errorText = await res.text();
+                console.error('Registration error:', errorText);
+                throw new Error(errorText || 'Registration failed');
+            }
+
+            console.log('Registration successful');
             alert('Registration successful! Please login.');
             router.push('/login');
         } catch (err: any) {
-            setError(err.message);
+            console.error('Registration error:', err);
+            setError(err.message || 'Registration failed. Please try again.');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -77,8 +95,12 @@ export default function RegisterPage() {
                     />
                 </div>
 
-                <button type="submit" className="w-full bg-blue-600 text-white p-3 rounded-lg font-bold hover:bg-blue-700 transition shadow-lg">
-                    Register
+                <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full bg-blue-600 text-white p-3 rounded-lg font-bold hover:bg-blue-700 transition shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    {loading ? 'Registering...' : 'Register'}
                 </button>
 
                 <p className="mt-4 text-center text-sm text-slate-500">
